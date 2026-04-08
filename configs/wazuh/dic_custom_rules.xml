@@ -1,0 +1,304 @@
+<!-- ================================================================
+     DIC Custom Rules — HIPAA/DICOM/Medical Environment
+     ================================================================ -->
+
+<group name="dic,medical,hipaa,">
+
+  <!-- ============================================================
+       DICOM / PACS Rules
+       ============================================================ -->
+
+  <!-- Rule 100001: Mass DICOM file modification — Ransomware indicator -->
+  <rule id="100001" level="15" frequency="3" timeframe="120">
+    <if_matched_sid>550</if_matched_sid>
+    <field name="file">\.dcm$</field>
+    <description>CRITICAL: Ransomware indicator — mass DICOM file modification ($(file))</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>ransomware,dicom,critical,hipaa_impact,</group>
+  </rule>
+
+  <!-- Rule 100002: DICOM file access from unauthorized process -->
+  <rule id="100002" level="10">
+    <if_sid>554</if_sid>
+    <field name="file">\.dcm$</field>
+    <field name="audit.exe" negate="yes">orthanc|dcmtk|radiant|osirix|3dslicer|storescu|movescu</field>
+    <description>Unauthorized process accessing DICOM file: $(audit.exe) → $(file)</description>
+    <mitre>
+      <id>T1005</id>
+    </mitre>
+    <group>dicom,unauthorized_access,hipaa_access,</group>
+  </rule>
+
+  <!-- Rule 100003: Ransom note created in DICOM directory -->
+  <rule id="100003" level="15">
+    <if_sid>554</if_sid>
+    <field name="file">README|DECRYPT|RECOVER|HOW_TO|RESTORE</field>
+    <field name="file">\.txt$|\.html$|\.hta$</field>
+    <description>Ransom note created in monitored directory: $(file)</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>ransomware,dicom,critical,</group>
+  </rule>
+
+  <!-- Rule 100004: Encrypted DICOM file created (.encrypted extension) -->
+  <rule id="100004" level="13" frequency="3" timeframe="120">
+    <if_matched_sid>554</if_matched_sid>
+    <field name="file">\.encrypted$|\.locked$|\.enc$|\.dcm\.\w{4,8}$</field>
+    <description>Encrypted files detected in DICOM directory — possible ransomware activity</description>
+    <mitre>
+      <id>T1486</id>
+    </mitre>
+    <group>ransomware,dicom,critical,</group>
+  </rule>
+
+  <!-- ============================================================
+       SSH / Brute Force Rules
+       ============================================================ -->
+
+  <!-- Rule 100005: SSH brute force against Medical VLAN hosts -->
+  <rule id="100005" level="12" frequency="10" timeframe="60">
+    <if_matched_sid>5710</if_matched_sid>
+    <srcip>!10.10.10.0/24</srcip>
+    <description>SSH brute force attack targeting Medical VLAN from $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>brute_force,ssh,medical,hipaa_access,</group>
+  </rule>
+
+  <!-- Rule 100006: SSH successful login after failures (credential stuffing success) -->
+  <rule id="100006" level="14">
+    <if_matched_sid>5720</if_matched_sid>
+    <same_srcip />
+    <description>SSH login SUCCESS after multiple failures from $(srcip) — possible compromised credentials</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>brute_force,ssh,credential_compromise,critical,</group>
+  </rule>
+
+  <!-- ============================================================
+       RDP / Windows Brute Force
+       ============================================================ -->
+
+  <!-- Rule 100007: RDP brute force from unauthorized source -->
+  <rule id="100007" level="12" frequency="10" timeframe="60">
+    <if_matched_sid>60122</if_matched_sid>
+    <srcip>!10.10.20.0/24</srcip>
+    <description>RDP brute force from unauthorized source $(srcip) — lateral movement attempt</description>
+    <mitre>
+      <id>T1110.001</id>
+    </mitre>
+    <group>brute_force,rdp,lateral_movement,</group>
+  </rule>
+
+  <!-- ============================================================
+       PowerShell / Fileless Malware
+       ============================================================ -->
+
+  <!-- Rule 100008: Encoded/fileless PowerShell execution -->
+  <rule id="100008" level="14">
+    <if_sid>92201</if_sid>
+    <field name="win.eventdata.commandLine">(?i)encodedcommand|-enc\s|frombase64string|invoke-expression|iex\s|downloadstring|webclient|downloadfile|bypass</field>
+    <description>Encoded/fileless PowerShell detected — possible malware: $(win.eventdata.commandLine)</description>
+    <mitre>
+      <id>T1059.001</id>
+    </mitre>
+    <group>malware,powershell,fileless,execution,</group>
+  </rule>
+
+  <!-- ============================================================
+       Network Scanning
+       ============================================================ -->
+
+  <!-- Rule 100009: Nmap/port scan against PACS server -->
+  <rule id="100009" level="10">
+    <if_sid>40101</if_sid>
+    <dstip>10.10.10.10</dstip>
+    <description>Network scan detected against PACS server from $(srcip)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>recon,nmap,pacs,discovery,</group>
+  </rule>
+
+  <!-- Rule 100010: Port scan against Medical VLAN -->
+  <rule id="100010" level="8" frequency="20" timeframe="30">
+    <if_matched_sid>40101</if_matched_sid>
+    <dstip>10.10.10.0/24</dstip>
+    <description>Systematic port scan against Medical VLAN from $(srcip)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>recon,medical,discovery,</group>
+  </rule>
+
+  <!-- ============================================================
+       Data Exfiltration
+       ============================================================ -->
+
+  <!-- Rule 100011: Large file transfer out of Medical VLAN (exfiltration) -->
+  <rule id="100011" level="13">
+    <if_sid>87930</if_sid>
+    <field name="data.bytes_sent">^[5-9][0-9]{7,}$|^[0-9]{9,}$</field>
+    <srcip>10.10.10.0/24</srcip>
+    <dstip>!10.10.0.0/16</dstip>
+    <description>CRITICAL: Large outbound transfer from Medical VLAN — possible DICOM exfiltration: $(data.bytes_sent) bytes → $(dstip)</description>
+    <mitre>
+      <id>T1041</id>
+    </mitre>
+    <group>exfiltration,dicom,critical,hipaa_breach,</group>
+  </rule>
+
+  <!-- ============================================================
+       Phishing / Credential Harvesting
+       ============================================================ -->
+
+  <!-- Rule 100012: Suspicious credential page access -->
+  <rule id="100012" level="11">
+    <if_sid>31101</if_sid>
+    <url>login|signin|portal|auth|credential</url>
+    <field name="data.srcip">!10.10.30.0/24</field>
+    <description>Suspicious credential page access from $(data.srcip) — possible phishing pivot</description>
+    <mitre>
+      <id>T1566.002</id>
+    </mitre>
+    <group>phishing,credential_access,initial_access,</group>
+  </rule>
+
+  <!-- Rule 100013: Credential captured in web log (phishing page POST) -->
+  <!-- FIX: was if_sid 31106 (nginx) — CAPTURED CREDENTIALS comes from
+       program_name=portal, not nginx, so it never matched nginx decoder.
+       Now uses decoded_as dic-portal-cred-capture which fires correctly. -->
+  <rule id="100013" level="14">
+    <decoded_as>dic-portal-cred-capture</decoded_as>
+    <description>Phishing credentials captured from $(srcip): $(extra_data)</description>
+    <mitre>
+      <id>T1056.003</id>
+    </mitre>
+    <group>phishing,credential_access,critical,hipaa_breach,</group>
+  </rule>
+
+  <!-- ============================================================
+       Active Directory Enumeration
+       ============================================================ -->
+
+  <!-- Rule 100014: Excessive LDAP queries (AD enumeration) -->
+  <rule id="100014" level="10" frequency="30" timeframe="120">
+    <if_matched_sid>18102</if_matched_sid>
+    <field name="win.eventdata.targetObject">CN=Users|CN=Computers|DC=</field>
+    <description>Possible Active Directory enumeration — excessive LDAP queries from $(win.eventdata.subjectUserName)</description>
+    <mitre>
+      <id>T1087.002</id>
+    </mitre>
+    <group>recon,ldap,ad_enum,discovery,</group>
+  </rule>
+
+  <!-- ============================================================
+       Suricata Alert Pass-through Rules
+       ============================================================ -->
+
+  <!-- Rule 100015: Suricata critical DICOM alert -->
+  <rule id="100015" level="12">
+    <if_sid>86601</if_sid>
+    <field name="alert.signature">DICOM|dicom</field>
+    <description>Suricata DICOM alert: $(alert.signature) from $(src_ip)</description>
+    <mitre>
+      <id>T1046</id>
+    </mitre>
+    <group>suricata,dicom,ids,</group>
+  </rule>
+
+  <!-- Rule 100016: Off-hours DICOM access (anomaly) -->
+  <rule id="100016" level="9">
+    <if_sid>554</if_sid>
+    <field name="file">\.dcm$</field>
+    <time>18:00 - 06:00</time>
+    <description>DICOM file access detected outside business hours: $(file)</description>
+    <mitre>
+      <id>T1005</id>
+    </mitre>
+    <group>dicom,anomaly,hipaa_access,after_hours,</group>
+  </rule>
+
+  <!-- Rule 100017: Orthanc REST API called from unauthorized source -->
+  <rule id="100017" level="10">
+    <if_sid>31101</if_sid>
+    <url>/studies|/series|/instances|/patients</url>
+    <field name="data.srcip">!10.10.20.20</field>
+    <field name="data.srcip">!10.10.0.0/24</field>
+    <description>Orthanc PACS REST API access from unauthorized source: $(data.srcip)</description>
+    <mitre>
+      <id>T1530</id>
+    </mitre>
+    <group>dicom,pacs,unauthorized_access,hipaa_access,</group>
+  </rule>
+
+  <!-- ============================================================
+       Authentication / Clinical Workflow Rules (Restored & Fixed)
+       ============================================================ -->
+
+  <!-- Rule 100020: Patient Portal Login Success -->
+  <rule id="100020" level="3">
+    <decoded_as>dic-auth-portal</decoded_as>
+    <match>SUCCESS</match>
+    <description>Patient Portal: Successful login for user $(dstuser) from $(srcip)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>authentication_success,portal_auth,hipaa_access,</group>
+  </rule>
+
+  <!-- Rule 100025: Patient Portal Login Failure -->
+  <rule id="100025" level="6">
+    <decoded_as>dic-auth-portal</decoded_as>
+    <match>FAILED</match>
+    <description>Patient Portal: Failed login attempt for user $(dstuser) from $(srcip)</description>
+    <mitre>
+      <id>T1110</id>
+    </mitre>
+    <group>authentication_failed,portal_auth,hipaa_denied,</group>
+  </rule>
+
+  <!-- Rule 100021: RIS Server Login Success -->
+  <rule id="100021" level="3">
+    <decoded_as>dic-auth-ris</decoded_as>
+    <match>SUCCESS</match>
+    <description>RIS Server: Successful portal login for user $(dstuser) from $(srcip)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>authentication_success,ris_auth,hipaa_access,</group>
+  </rule>
+
+  <!-- Rule 100024: RIS HL7 ADT event received -->
+  <rule id="100024" level="3">
+    <decoded_as>dic-ris-hl7</decoded_as>
+    <description>RIS: HL7 $(status) event for patient $(dstuser)</description>
+    <group>ris,hl7,clinical_workflow,hipaa_activity,</group>
+  </rule>
+
+  <!-- Rule 100022: Orthanc PACS — DICOM C-STORE completed -->
+  <rule id="100022" level="3">
+    <decoded_as>orthanc-dicom-store</decoded_as>
+    <description>PACS Server (Orthanc): DICOM C-STORE completed successfully for patient $(dstuser)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>dicom,pacs_activity,pacs_auth,hipaa_access,</group>
+  </rule>
+
+  <!-- Rule 100023: Orthanc PACS — DICOM instance received -->
+  <rule id="100023" level="3">
+    <decoded_as>orthanc-dicom-recv</decoded_as>
+    <description>PACS Server (Orthanc): DICOM instance received for patient $(dstuser) modality $(status)</description>
+    <mitre>
+      <id>T1078</id>
+    </mitre>
+    <group>dicom,pacs_activity,hipaa_activity,</group>
+  </rule>
+
+</group>

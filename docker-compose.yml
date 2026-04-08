@@ -1,0 +1,468 @@
+# ================================================================
+# DIC SOC Lab — Diagnostic Imaging Center
+# Wazuh 4.7.5 (official single-node) + DIC Medical Stack
+# ================================================================
+
+services:
+
+  # ============================================================
+  # WAZUH INDEXER — OpenSearch
+  # ============================================================
+  wazuh.indexer:
+    image: wazuh/wazuh-indexer:4.7.5
+    hostname: wazuh.indexer
+    container_name: dic-wazuh-indexer
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.5
+    ports:
+      - "9200:9200"
+    environment:
+      - "OPENSEARCH_JAVA_OPTS=-Xms1g -Xmx1g"
+      - bootstrap.memory_lock=true
+      - DISABLE_INSTALL_DEMO_CONFIG=true
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile:  { soft: 65536, hard: 65536 }
+    volumes:
+      - wazuh-indexer-data:/var/lib/wazuh-indexer
+      - ./certs/root-ca.pem:/usr/share/wazuh-indexer/certs/root-ca.pem:ro
+      - ./certs/wazuh.indexer-key.pem:/usr/share/wazuh-indexer/certs/indexer-key.pem:ro
+      - ./certs/wazuh.indexer.pem:/usr/share/wazuh-indexer/certs/indexer.pem:ro
+      - ./certs/admin.pem:/usr/share/wazuh-indexer/certs/admin.pem:ro
+      - ./certs/admin-key.pem:/usr/share/wazuh-indexer/certs/admin-key.pem:ro
+      - ./configs/wazuh/wazuh.indexer.yml:/usr/share/wazuh-indexer/opensearch.yml:ro
+      - ./configs/wazuh/internal_users.yml:/usr/share/wazuh-indexer/opensearch-security/internal_users.yml:ro
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'cat < /dev/null > /dev/tcp/localhost/9200' && echo ok"]
+      interval: 30s
+      timeout: 10s
+      retries: 30
+      start_period: 120s
+
+  # ============================================================
+  # WAZUH MANAGER — SIEM
+  # ============================================================
+  wazuh.manager:
+    image: wazuh/wazuh-manager:4.7.5
+    hostname: wazuh.manager
+    container_name: dic-wazuh-manager
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.10
+      medical:
+      admin_vlan:
+      dmz:
+    ports:
+      - "1515:1515"
+      - "514:514/udp"
+      - "56000:55000"
+    environment:
+      - INDEXER_URL=https://wazuh.indexer:9200
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=SecretPassword1!
+      - FILEBEAT_SSL_VERIFICATION_MODE=full
+      - SSL_CERTIFICATE_AUTHORITIES=/etc/ssl/root-ca.pem
+      - SSL_CERTIFICATE=/etc/ssl/filebeat.pem
+      - SSL_KEY=/etc/ssl/filebeat.key
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${API_PASSWORD:-MyS3cr37P450r.*-}
+      - ENROLLMENT_PASSWORD=${ENROLLMENT_PASSWORD:-AgentEnrollP@ss1!}
+    volumes:
+      - wazuh-api-config:/var/ossec/api/configuration
+      - wazuh-logs:/var/ossec/logs
+      - wazuh-queue:/var/ossec/queue
+      - wazuh-var-multigroups:/var/ossec/var/multi-groups
+      - wazuh-integrations:/var/ossec/integrations
+      - wazuh-active-response:/var/ossec/active-response/bin
+      - wazuh-agentless:/var/ossec/agentless
+      - wazuh-wodles:/var/ossec/wodles
+      - ./configs/wazuh/ossec_manager.conf:/var/ossec/etc/ossec.conf:ro
+      - ./configs/wazuh/dic_custom_rules.xml:/var/ossec/etc/rules/dic_custom_rules.xml:ro
+      - ./configs/wazuh/dic_custom_decoders.xml:/var/ossec/etc/decoders/dic_custom_decoders.xml:ro
+      - ./configs/wazuh/shared/ar.conf:/var/ossec/etc/shared/ar.conf
+      - ./configs/wazuh/shared/default/agent.conf:/var/ossec/etc/shared/default/agent.conf:ro
+      - ./configs/wazuh/shared/dic-linux/agent.conf:/var/ossec/etc/shared/dic-linux/agent.conf:ro
+      - ./configs/wazuh/shared/pacs-server/agent.conf:/var/ossec/etc/shared/pacs-server/agent.conf:ro
+      - ./configs/wazuh/shared/ris-server/agent.conf:/var/ossec/etc/shared/ris-server/agent.conf:ro
+      - ./certs/root-ca.pem:/etc/ssl/root-ca.pem:ro
+      - ./certs/wazuh.manager.pem:/etc/ssl/filebeat.pem:ro
+      - ./certs/wazuh.manager-key.pem:/etc/ssl/filebeat.key:ro
+      # Web server logs (existing)
+      - web-logs-portal:/var/web-logs/portal:rw
+      - web-logs-nginx:/var/web-logs/nginx:rw
+      # Suricata IDS logs (existing)
+      - suricata-logs:/var/log/suricata:rw
+      # FIX: PACS logs (orthanc.log + portal/auth.log from pacs container)
+      - pacs-logs:/var/pacs-logs:rw
+      # FIX: RIS logs (ris.log + portal/auth.log from ris container)
+      - ris-logs:/var/ris-logs:rw
+    depends_on:
+      wazuh.indexer:
+        condition: service_healthy
+
+  # ============================================================
+  # WAZUH DASHBOARD — Kibana UI
+  # ============================================================
+  wazuh.dashboard:
+    image: wazuh/wazuh-dashboard:4.7.5
+    hostname: wazuh.dashboard
+    container_name: dic-wazuh-dashboard
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.15
+    ports:
+      - "443:5601"
+    environment:
+      - INDEXER_USERNAME=admin
+      - INDEXER_PASSWORD=${INDEXER_PASSWORD:-SecretPassword1!}
+      - DASHBOARD_USERNAME=admin
+      - DASHBOARD_PASSWORD=${DASHBOARD_PASSWORD:-SecretPassword1!}
+      - API_USERNAME=wazuh-wui
+      - API_PASSWORD=${API_PASSWORD:-MyS3cr37P450r.*-}
+    volumes:
+      - wazuh-dashboard-config:/usr/share/wazuh-dashboard/data/wazuh/config
+      - wazuh-dashboard-custom:/usr/share/wazuh-dashboard/plugins/wazuh/public/assets/custom
+      - ./configs/wazuh/wazuh.yml:/usr/share/wazuh-dashboard/data/wazuh/config/wazuh.yml:ro
+      - ./certs/wazuh.dashboard.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard.pem:ro
+      - ./certs/wazuh.dashboard-key.pem:/usr/share/wazuh-dashboard/certs/wazuh-dashboard-key.pem:ro
+      - ./certs/root-ca.pem:/usr/share/wazuh-dashboard/certs/root-ca.pem:ro
+    depends_on:
+      wazuh.indexer:
+        condition: service_healthy
+
+  # ============================================================
+  # SURICATA IDS/IPS
+  # ============================================================
+  suricata:
+    image: jasonish/suricata:latest
+    hostname: suricata
+    container_name: dic-suricata
+    restart: always
+    networks:
+      management:
+      medical:
+      admin_vlan:
+      dmz:
+    cap_add:
+      - NET_ADMIN
+      - SYS_NICE
+      - NET_RAW
+    volumes:
+      - suricata-logs:/var/log/suricata
+      - ./configs/suricata/dic.rules:/etc/suricata/rules/dic.rules
+      - ./configs/suricata/suricata.yaml:/etc/suricata/suricata.yaml
+    command: ["--af-packet", "-c", "/etc/suricata/suricata.yaml", "-v"]
+
+  # ============================================================
+  # SHUFFLE SOAR
+  # ============================================================
+  shuffle-frontend:
+    image: ghcr.io/shuffle/shuffle-frontend:latest
+    hostname: shuffle-frontend
+    container_name: dic-shuffle-frontend
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.12
+    ports:
+      - "3001:80"
+      - "3443:443"
+    environment:
+      - BACKEND_HOSTNAME=shuffle-backend
+    depends_on:
+      - shuffle-backend
+
+  shuffle-backend:
+    image: ghcr.io/shuffle/shuffle-backend:latest
+    hostname: shuffle-backend
+    container_name: dic-shuffle-backend
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.13
+    ports:
+      - "5001:5001"
+    environment:
+      - DATASTORE_EMULATOR_HOST=shuffle-database:9200
+      - SHUFFLE_OPENSEARCH_URL=http://shuffle-database:9200
+      - ENVIRONMENT_NAME=production
+      - DOCKER_API_VERSION=1.40
+      - SHUFFLE_ENCRYPTION_MODIFIER=${SHUFFLE_ENCRYPTION_MODIFIER:-SOCLabSecret2024}
+      - SHUFFLE_DEFAULT_USERNAME=${SHUFFLE_DEFAULT_USERNAME:-socadmin}
+      - SHUFFLE_DEFAULT_PASSWORD=${SHUFFLE_DEFAULT_PASSWORD:-SOCAdmin!2026}
+      - SHUFFLE_DEFAULT_APIKEY=shuffleadminapikey2026soclab
+      - SHUFFLE_SKIP_VERIFICATION=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - shuffle-apps:/shuffle-apps
+    depends_on:
+      - shuffle-database
+
+  shuffle-orborus:
+    image: ghcr.io/shuffle/shuffle-orborus:latest
+    hostname: shuffle-orborus
+    container_name: dic-shuffle-orborus
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.16
+    environment:
+      - SHUFFLE_APP_SDK_VERSION=1.1.0
+      - SHUFFLE_WORKER_VERSION=latest
+      - ORG_ID=Shuffle
+      - ENVIRONMENT_NAME=production
+      - BASE_URL=http://shuffle-backend:5001
+      - DOCKER_API_VERSION=1.40
+      - CLEANUP=true
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  shuffle-database:
+    image: opensearchproject/opensearch:2.5.0
+    hostname: shuffle-database
+    container_name: dic-shuffle-database
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.14
+    ports:
+      - "9201:9200"
+    environment:
+      - bootstrap.memory_lock=true
+      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "discovery.type=single-node"
+      - DISABLE_SECURITY_PLUGIN=true
+    ulimits:
+      memlock: { soft: -1, hard: -1 }
+      nofile:  { soft: 65536, hard: 65536 }
+    volumes:
+      - shuffle-opensearch:/usr/share/opensearch/data
+
+  # ============================================================
+  # MEDICAL VLAN — 10.10.10.0/24
+  # ============================================================
+  pacs-server:
+    build:
+      context: ./containers/pacs
+      dockerfile: Dockerfile
+    hostname: pacs-server
+    container_name: dic-pacs-server
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.100
+      medical:
+        ipv4_address: 10.10.10.10
+    ports:
+      - "8042:8042"
+      - "4242:4242"
+    environment:
+      - WAZUH_MANAGER=10.10.0.10
+      - ENROLLMENT_PASSWORD=${ENROLLMENT_PASSWORD:-AgentEnrollP@ss1!}
+    volumes:
+      - orthanc-data:/var/lib/orthanc/db
+      - ./configs/orthanc/orthanc.json:/etc/orthanc/orthanc.json:ro
+      - dicom-files:/opt/dicom_test
+      - ./scripts:/opt/scripts:ro
+      # FIX: expose pacs log directories into shared volume
+      # wazuh.manager reads from /var/pacs-logs/orthanc/orthanc.log
+      #                      and /var/pacs-logs/portal/auth.log
+      - pacs-logs:/var/log
+    depends_on:
+      - wazuh.manager
+
+  ris-server:
+    build:
+      context: ./containers/ris
+      dockerfile: Dockerfile
+    hostname: ris-server
+    container_name: dic-ris-server
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.101
+      medical:
+        ipv4_address: 10.10.10.20
+    ports:
+      - "8081:8080"
+      - "2575:2575"
+    environment:
+      - WAZUH_MANAGER=10.10.0.10
+      - ENROLLMENT_PASSWORD=${ENROLLMENT_PASSWORD:-AgentEnrollP@ss1!}
+      - RIS_USERNAME=${RIS_USERNAME:-radiologist}
+      - RIS_PASSWORD=${RIS_PASSWORD:-Radiology#2026}
+    volumes:
+      - ./scripts:/opt/scripts:ro
+      # FIX: expose ris log directories into shared volume
+      # wazuh.manager reads from /var/ris-logs/ris/ris.log
+      #                      and /var/ris-logs/portal/auth.log
+      - ris-logs:/var/log
+    depends_on:
+      - pacs-server
+
+  mri-simulator:
+    build:
+      context: ./containers/mri-simulator
+      dockerfile: Dockerfile
+    hostname: mri-simulator
+    container_name: dic-mri-simulator
+    restart: unless-stopped
+    networks:
+      management:
+        ipv4_address: 10.10.0.102
+      medical:
+        ipv4_address: 10.10.10.30
+    environment:
+      - PACS_HOST=10.10.10.10
+      - PACS_PORT=4242
+      - WAZUH_MANAGER=10.10.0.10
+      - MODALITY=MR
+      - SEND_INTERVAL=120
+    volumes:
+      - dicom-files:/opt/dicom_test
+    depends_on:
+      - pacs-server
+
+  ct-simulator:
+    build:
+      context: ./containers/ct-simulator
+      dockerfile: Dockerfile
+    hostname: ct-simulator
+    container_name: dic-ct-simulator
+    restart: unless-stopped
+    networks:
+      management:
+        ipv4_address: 10.10.0.103
+      medical:
+        ipv4_address: 10.10.10.31
+    environment:
+      - PACS_HOST=10.10.10.10
+      - PACS_PORT=4242
+      - WAZUH_MANAGER=10.10.0.10
+      - MODALITY=CT
+      - SEND_INTERVAL=180
+    volumes:
+      - dicom-files:/opt/dicom_test
+    depends_on:
+      - pacs-server
+
+  # ============================================================
+  # DMZ — 10.10.30.0/24
+  # ============================================================
+  web-server:
+    build:
+      context: ./containers/web-server
+      dockerfile: Dockerfile
+    hostname: web-server
+    container_name: dic-web-server
+    restart: always
+    networks:
+      management:
+        ipv4_address: 10.10.0.200
+      dmz:
+        ipv4_address: 10.10.30.10
+    ports:
+      - "8080:80"
+    environment:
+      - WAZUH_MANAGER=10.10.0.10
+      - ENROLLMENT_PASSWORD=${ENROLLMENT_PASSWORD:-AgentEnrollP@ss1!}
+      - PORTAL_USERNAME=${PORTAL_USERNAME:-patient1}
+      - PORTAL_PASSWORD=${PORTAL_PASSWORD:-Patient#2026}
+    volumes:
+      - ./scripts:/opt/scripts:ro
+      - web-logs-portal:/var/log/portal
+      - web-logs-nginx:/var/log/nginx
+    depends_on:
+      - wazuh.manager
+
+  # ============================================================
+  # ATTACKER — Red Team
+  # ============================================================
+  attacker:
+    build:
+      context: ./containers/attacker
+      dockerfile: Dockerfile
+    hostname: attacker
+    container_name: dic-attacker
+    networks:
+      management:
+        ipv4_address: 10.10.0.250
+      medical:
+        ipv4_address: 10.10.10.99
+      admin_vlan:
+        ipv4_address: 10.10.20.99
+      dmz:
+        ipv4_address: 10.10.30.99
+    tty: true
+    stdin_open: true
+    privileged: true
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    volumes:
+      - dicom-files:/opt/dicom_test
+      - ./scripts:/opt/scripts:ro
+    profiles: ["attack"]
+
+# ============================================================
+# NETWORKS
+# ============================================================
+networks:
+  management:
+    name: dic-management
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.0.0/24
+          gateway: 10.10.0.1
+  medical:
+    name: dic-medical
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.10.0/24
+          gateway: 10.10.10.1
+  admin_vlan:
+    name: dic-admin
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.20.0/24
+          gateway: 10.10.20.1
+  dmz:
+    name: dic-dmz
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 10.10.30.0/24
+          gateway: 10.10.30.1
+
+# ============================================================
+# VOLUMES
+# ============================================================
+volumes:
+  wazuh-api-config:
+  wazuh-etc:
+  wazuh-logs:
+  wazuh-queue:
+  wazuh-var-multigroups:
+  wazuh-integrations:
+  wazuh-active-response:
+  wazuh-agentless:
+  wazuh-wodles:
+  wazuh-indexer-data:
+  wazuh-dashboard-config:
+  wazuh-dashboard-custom:
+  orthanc-data:
+  shuffle-apps:
+  shuffle-opensearch:
+  suricata-logs:
+  dicom-files:
+  web-logs-portal:
+  web-logs-nginx:
+  pacs-logs:
+  ris-logs:

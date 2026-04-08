@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DIC Patient Portal</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f4f8; min-height: 100vh; display: flex; flex-direction: column; }
+    header { background: linear-gradient(135deg, #1a3a6b 0%, #2563eb 100%); color: white; padding: 16px 32px; display: flex; align-items: center; gap: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
+    header img { width: 48px; height: 48px; }
+    header h1 { font-size: 22px; font-weight: 700; }
+    header p  { font-size: 12px; opacity: 0.8; }
+    .hipaa-banner { background: #1e40af; color: #bfdbfe; text-align: center; font-size: 11px; padding: 6px; letter-spacing: 0.5px; }
+    main { flex: 1; display: grid; place-items: center; padding: 40px 16px; }
+    .card { background: white; border-radius: 12px; box-shadow: 0 4px 24px rgba(0,0,0,0.1); width: 100%; max-width: 420px; overflow: hidden; }
+    .card-header { background: #1a3a6b; color: white; padding: 24px; text-align: center; }
+    .card-header h2 { font-size: 18px; margin-bottom: 4px; }
+    .card-header p  { font-size: 12px; opacity: 0.8; }
+    .card-body { padding: 28px; }
+    .form-group { margin-bottom: 18px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 10px 14px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 14px; transition: border-color 0.2s;
+    }
+    input:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px #dbeafe; }
+    .btn { width: 100%; padding: 12px; background: #2563eb; color: white; border: none;
+           border-radius: 8px; font-size: 15px; font-weight: 600; cursor: pointer;
+           transition: background 0.2s; }
+    .btn:hover { background: #1d4ed8; }
+    .links { display: flex; justify-content: space-between; margin-top: 16px; }
+    .links a { font-size: 12px; color: #2563eb; text-decoration: none; }
+    .links a:hover { text-decoration: underline; }
+    .features { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding: 24px; border-top: 1px solid #f0f4f8; }
+    .feature { text-align: center; color: #6b7280; }
+    .feature .icon { font-size: 28px; margin-bottom: 8px; }
+    .feature p { font-size: 12px; }
+    footer { background: #1a3a6b; color: #93c5fd; text-align: center; padding: 12px; font-size: 11px; }
+    .notice { font-size: 11px; color: #6b7280; text-align: center; margin-top: 14px; padding: 8px; background: #f9fafb; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>🏥 Diagnostic Imaging Center</h1>
+      <p>Secure Patient Portal — HIPAA Compliant</p>
+    </div>
+  </header>
+  <div class="hipaa-banner">
+    🔒 This system contains Protected Health Information (PHI). All access is monitored and logged per HIPAA §164.312(b).
+  </div>
+
+  <main>
+    <div class="card">
+      <div class="card-header">
+        <h2>Patient Portal Login</h2>
+        <p>Access your imaging results and appointments</p>
+      </div>
+      <div class="card-body">
+        <form action="/login" method="POST" id="loginForm">
+          <div class="form-group">
+            <label for="username">Patient ID or Username</label>
+            <input type="text" id="username" name="username" placeholder="e.g. DIC000001" autocomplete="username" required>
+          </div>
+          <div class="form-group">
+            <label for="password">Password</label>
+            <input type="password" id="password" name="password" placeholder="Enter your password" autocomplete="current-password" required>
+          </div>
+          <button type="submit" class="btn">Sign In →</button>
+          <div class="links">
+            <a href="/forgot-password">Forgot password?</a>
+            <a href="/register">New patient registration</a>
+          </div>
+        </form>
+        <div class="notice">
+          ⚠️ Unauthorized access is a violation of HIPAA and federal law.<br>
+          This session is being logged and monitored by our SOC team.
+        </div>
+      </div>
+      <div class="features">
+        <div class="feature"><div class="icon">🔬</div><p>View Imaging Results</p></div>
+        <div class="feature"><div class="icon">📅</div><p>Book Appointments</p></div>
+        <div class="feature"><div class="icon">📄</div><p>Download Reports</p></div>
+        <div class="feature"><div class="icon">💬</div><p>Message Radiologist</p></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    © 2024 Diagnostic Imaging Center | HIPAA Compliant | SOC Monitored | IT Support: soc@dic.lab
+  </footer>
+</body>
+</html>

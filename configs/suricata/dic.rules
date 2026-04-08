@@ -1,0 +1,97 @@
+# ================================================================
+# DIC Custom Suricata Rules — DICOM/Medical Environment
+# ================================================================
+
+# ---------------------------------------------------------------
+# DICOM Protocol Rules
+# ---------------------------------------------------------------
+
+# SID 9000001: Unauthorized DICOM C-STORE (not from known modalities)
+alert tcp !10.10.10.0/24 any -> 10.10.10.10 [104,4242] (msg:"DIC: DICOM C-STORE from unauthorized source"; flow:established,to_server; dsize:>100; content:"|04|"; depth:4; classtype:policy-violation; sid:9000001; rev:2;)
+
+# SID 9000002: Nmap DICOM port probe detection
+alert tcp any any -> 10.10.10.10 [104,4242] (msg:"DIC: NMAP DICOM port scan detected"; flags:S; threshold:type threshold,track by_src,count 5,seconds 10; classtype:attempted-recon; sid:9000002; rev:2;)
+
+# SID 9000003: Large data exfiltration from Medical VLAN (>50MB)
+alert tcp 10.10.10.0/24 any -> !10.10.0.0/16 any (msg:"DIC: Large data exfiltration from Medical VLAN - possible DICOM theft"; dsize:>1400; threshold:type threshold,track by_src,count 30,seconds 10; classtype:data-loss; sid:9000003; rev:3;)
+
+# SID 9000004: Unauthorized DICOM C-FIND (query all studies)
+alert tcp !10.10.20.20 any -> 10.10.10.10 [104,4242] (msg:"DIC: DICOM C-FIND from unauthorized workstation"; flow:established,to_server; content:"|00 00 00 01|"; depth:8; classtype:policy-violation; sid:9000004; rev:1;)
+
+# SID 9000005: DICOM connection from DMZ (should be impossible)
+alert tcp 10.10.30.0/24 any -> 10.10.10.0/24 [104,4242] (msg:"DIC: CRITICAL - DICOM access from DMZ zone"; flow:to_server; classtype:policy-violation; sid:9000005; rev:1;)
+
+# ---------------------------------------------------------------
+# Brute Force Rules
+# ---------------------------------------------------------------
+
+# SID 9000010: SSH brute force against Medical VLAN
+alert tcp any any -> 10.10.10.0/24 22 (msg:"DIC: SSH Brute Force against Medical VLAN"; flags:S; threshold:type threshold,track by_src,count 10,seconds 60; classtype:attempted-admin; sid:9000010; rev:2;)
+
+# SID 9000011: RDP brute force against Admin VLAN
+alert tcp any any -> 10.10.20.0/24 3389 (msg:"DIC: RDP Brute Force against Admin VLAN"; flags:S; threshold:type threshold,track by_src,count 5,seconds 30; classtype:attempted-admin; sid:9000011; rev:2;)
+
+# SID 9000012: Telnet attempt (insecure protocol in medical environment)
+alert tcp any any -> 10.10.10.0/24 23 (msg:"DIC: Telnet connection to Medical VLAN - HIPAA violation risk"; flow:to_server; classtype:policy-violation; sid:9000012; rev:1;)
+
+# ---------------------------------------------------------------
+# HL7 Protocol Rules
+# ---------------------------------------------------------------
+
+# SID 9000020: HL7 message from non-RIS source
+alert tcp !10.10.10.20 any -> any 2575 (msg:"DIC: HL7 message from unauthorized source (not RIS)"; flow:established; classtype:policy-violation; sid:9000020; rev:2;)
+
+# SID 9000021: HL7 to non-RIS destination
+alert tcp any any -> !10.10.10.20 2575 (msg:"DIC: HL7 to unauthorized destination"; flow:to_server; classtype:policy-violation; sid:9000021; rev:1;)
+
+# ---------------------------------------------------------------
+# Malware / C2 Rules
+# ---------------------------------------------------------------
+
+# SID 9000030: PowerShell download cradle via HTTP
+alert http any any -> any any (msg:"DIC: PowerShell download cradle detected"; http.user_agent; content:"PowerShell"; nocase; http.method; content:"GET"; classtype:trojan-activity; sid:9000030; rev:2;)
+
+# SID 9000031: Ransomware C2 beacon pattern
+alert http 10.10.0.0/16 any -> $EXTERNAL_NET any (msg:"DIC: Possible ransomware C2 beacon from internal host"; http.header_names; content:"Content-Type"; http.request_body; content:"AES"; nocase; threshold:type both,track by_src,count 3,seconds 30; classtype:trojan-activity; sid:9000031; rev:2;)
+
+# SID 9000032: DNS exfiltration pattern (long subdomain queries)
+alert dns 10.10.10.0/24 any -> any 53 (msg:"DIC: Possible DNS exfiltration from Medical VLAN - anomalous query length"; dns.query; pcre:"/[a-zA-Z0-9+/]{40,}\./"; classtype:data-loss; sid:9000032; rev:1;)
+
+# SID 9000033: ICMP tunnel detection (ping exfiltration)
+alert icmp 10.10.10.0/24 any -> $EXTERNAL_NET any (msg:"DIC: Possible ICMP tunnel from Medical VLAN"; itype:8; dsize:>200; threshold:type threshold,track by_src,count 10,seconds 10; classtype:data-loss; sid:9000033; rev:1;)
+
+# SID 9000034: Cobalt Strike default malleable C2 beacon
+alert http 10.10.0.0/16 any -> $EXTERNAL_NET any (msg:"DIC: Cobalt Strike malleable C2 beacon pattern"; http.uri; content:"/submit.php"; http.header; content:"Cookie|3A| "; pcre:"/[a-zA-Z0-9+\/]{100,}==/H"; classtype:trojan-activity; sid:9000034; rev:2;)
+
+# ---------------------------------------------------------------
+# Reconnaissance Rules
+# ---------------------------------------------------------------
+
+# SID 9000040: Nmap OS detection scan
+alert tcp any any -> 10.10.0.0/16 any (msg:"DIC: Nmap OS detection probe detected"; flags:FPU; classtype:attempted-recon; sid:9000040; rev:1;)
+
+# SID 9000041: Full subnet sweep of Medical VLAN
+alert icmp any any -> 10.10.10.0/24 any (msg:"DIC: ICMP sweep of Medical VLAN"; itype:8; threshold:type threshold,track by_src,count 20,seconds 10; classtype:attempted-recon; sid:9000041; rev:1;)
+
+# SID 9000042: LDAP enumeration from external source
+alert tcp !10.10.20.0/24 any -> 10.10.20.10 [389,636] (msg:"DIC: LDAP query from outside Admin VLAN - AD enumeration"; flow:to_server; threshold:type threshold,track by_src,count 10,seconds 30; classtype:attempted-recon; sid:9000042; rev:1;)
+
+# ---------------------------------------------------------------
+# DMZ Isolation Violation
+# ---------------------------------------------------------------
+
+# SID 9000050: DMZ to Medical VLAN direct access (critical violation)
+alert ip 10.10.30.0/24 any -> 10.10.10.0/24 any (msg:"DIC: CRITICAL - DMZ to Medical VLAN isolation breach"; classtype:policy-violation; sid:9000050; rev:1;)
+
+# SID 9000051: DMZ to Admin VLAN direct access
+alert ip 10.10.30.0/24 any -> 10.10.20.0/24 any (msg:"DIC: CRITICAL - DMZ to Admin VLAN isolation breach"; classtype:policy-violation; sid:9000051; rev:1;)
+
+# ---------------------------------------------------------------
+# TLS/Encrypted Traffic Analysis
+# ---------------------------------------------------------------
+
+# SID 9000060: Unusual TLS version (TLS 1.0) on DICOM port
+alert tls any any -> 10.10.10.10 [104,4242] (msg:"DIC: Legacy TLS 1.0 on DICOM port - HIPAA compliance risk"; tls.version:1.0; classtype:policy-violation; sid:9000060; rev:2;)
+
+# SID 9000061: Self-signed cert to external host (possible C2)
+alert tls 10.10.10.0/24 any -> $EXTERNAL_NET 443 (msg:"DIC: Self-signed TLS cert from Medical VLAN to internet - possible C2"; tls.cert_issuer; content:"O=Internet Widgits"; nocase; classtype:trojan-activity; sid:9000061; rev:1;)

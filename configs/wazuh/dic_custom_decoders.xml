@@ -1,0 +1,87 @@
+<!-- ================================================================
+     DIC Custom Decoders — HIPAA/DICOM/Medical Environment
+     ================================================================ -->
+
+<!-- ============================================================
+     Patient Portal root decoder
+     Matches: PORTAL_LOGIN and CAPTURED CREDENTIALS lines
+     Example: portal: PORTAL_LOGIN SUCCESS src=1.2.3.4 user=admin
+     Example: portal: CAPTURED CREDENTIALS: {..} from 1.2.3.4
+============================================================ -->
+<decoder name="dic-auth-portal">
+  <prematch>PORTAL_LOGIN|CAPTURED CREDENTIALS</prematch>
+</decoder>
+
+<!-- Extracts status, srcip, dstuser from login lines -->
+<decoder name="dic-auth-portal-fields">
+  <parent>dic-auth-portal</parent>
+  <prematch>PORTAL_LOGIN </prematch>
+  <regex type="pcre2">PORTAL_LOGIN\s+(\w+)\s+src=(\S+)\s+user=(\S+)</regex>
+  <order>status, srcip, dstuser</order>
+</decoder>
+
+<!-- Extracts extra_data and srcip from credential capture lines
+     This makes Rule 100013 fire via decoded_as instead of if_sid 31106 -->
+<decoder name="dic-portal-cred-capture">
+  <parent>dic-auth-portal</parent>
+  <prematch>CAPTURED CREDENTIALS</prematch>
+  <regex type="pcre2">CAPTURED CREDENTIALS:\s+(.+)\s+from\s+(\S+)$</regex>
+  <order>extra_data, srcip</order>
+</decoder>
+
+
+<!-- ============================================================
+     RIS Server decoder — child of dic-auth-portal
+     FIX: Was a duplicate root decoder with identical prematch.
+     Wazuh only honours the first matching root decoder, so
+     dic-auth-ris was silently ignored and rules referencing it
+     crashed analysisd on startup with "Invalid decoder name".
+     As a child it still works for Rules 100021/100024 via
+     decoded_as, but no longer conflicts with dic-auth-portal.
+============================================================ -->
+<decoder name="dic-auth-ris">
+  <parent>dic-auth-portal</parent>
+  <prematch>PORTAL_LOGIN </prematch>
+  <regex type="pcre2">PORTAL_LOGIN\s+(\w+)\s+src=(\S+)\s+user=(\S+)</regex>
+  <order>status, srcip, dstuser</order>
+</decoder>
+
+
+<!-- ============================================================
+     Orthanc PACS Decoder
+     Example: orthanc: W2026-04-01T10:00:00Z Orthanc Received DICOM instance for patient PT-001 modality CT
+     Example: orthanc: W2026-04-01T10:00:00Z Orthanc C-STORE completed successfully for PT-001
+============================================================ -->
+<decoder name="orthanc-server">
+  <program_name>orthanc</program_name>
+  <prematch>Orthanc </prematch>
+</decoder>
+
+<decoder name="orthanc-dicom-recv">
+  <parent>orthanc-server</parent>
+  <prematch>Orthanc Received DICOM instance</prematch>
+  <regex type="pcre2">Orthanc Received DICOM instance for patient (\S+) modality (\S+)</regex>
+  <order>dstuser, status</order>
+</decoder>
+
+<decoder name="orthanc-dicom-store">
+  <parent>orthanc-server</parent>
+  <prematch>Orthanc C-STORE completed</prematch>
+  <regex type="pcre2">Orthanc C-STORE completed successfully for (\S+)</regex>
+  <order>dstuser</order>
+</decoder>
+
+
+<!-- ============================================================
+     RIS HL7 Decoder
+     Example: ris_server[1234]: [HL7-ADT] Admission event received for patient PT-001 from RIS system [pid=1234]
+============================================================ -->
+<decoder name="dic-ris-hl7">
+  <prematch>[HL7-ADT]</prematch>
+</decoder>
+
+<decoder name="dic-ris-hl7-fields">
+  <parent>dic-ris-hl7</parent>
+  <regex type="pcre2">\[HL7-ADT\]\s+(\w+)\s+event received for patient\s+(\S+)\s+from\s+(\S+)</regex>
+  <order>status, dstuser, srcip</order>
+</decoder>

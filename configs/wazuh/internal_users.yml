@@ -1,0 +1,52 @@
+---
+# This is the internal user database
+# The hash value is a bcrypt hash and can be generated with plugin/tools/hash.sh
+# Default password for admin/kibanaserver: SecretPassword1!
+# Generated with: htpasswd -bnBC 12 "" SecretPassword1! | tr -d ':\n'
+
+_meta:
+  type: "internalusers"
+  config_version: 2
+
+admin:
+  hash: "$2b$12$8loh4u/dYLlndsRsJCsnXe5BhGE2164WMlGbQyBfp3fAI/O/3BX6a"
+  reserved: true
+  backend_roles:
+    - "admin"
+  description: "Wazuh admin user"
+
+kibanaserver:
+  hash: "$2b$12$8loh4u/dYLlndsRsJCsnXe5BhGE2164WMlGbQyBfp3fAI/O/3BX6a"
+  reserved: true
+  description: "Kibana server user"
+
+kibanaro:
+  hash: "$2y$12$JJSXNfTowz7Uu5ttXfeYpeYE0arACvcwlPBStB1F.MI7f0U9Z4An."
+  reserved: false
+  backend_roles:
+    - "kibanauser"
+    - "readall"
+  attributes:
+    attribute1: "value1"
+  description: "Kibana read only user"
+
+logstash:
+  hash: "$2y$12$u1ShR4l4uBS3Uv59Pa2y5.1uQuZBrZtmNfqB3iM/.jL0XoV9sghyq"
+  reserved: false
+  backend_roles:
+    - "logstash"
+  description: "Logstash user"
+
+readall:
+  hash: "$2y$12$ae4ycwzwvLtZxwZ82RmiEunBbIPjth/pPBqMYCnbNusuCBQTCqRaG"
+  reserved: false
+  backend_roles:
+    - "readall"
+  description: "Read all user"
+
+snapshotrestore:
+  hash: "$2y$12$DpwmetHKwgYnorbgdvORCenv4NAK8cPUg8AI6pxLCuWf/ALc0.v7W"
+  reserved: false
+  backend_roles:
+    - "snapshotrestore"
+  description: "Snapshot restore user"

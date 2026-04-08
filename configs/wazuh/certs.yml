@@ -1,0 +1,16 @@
+nodes:
+  # Wazuh indexer nodes
+  indexer:
+    - name: wazuh.indexer
+      ip: "10.10.0.5"
+
+  # Wazuh server nodes
+  server:
+    - name: wazuh.manager
+      ip: "10.10.0.10"
+      node_type: master
+
+  # Wazuh dashboard nodes
+  dashboard:
+    - name: wazuh.dashboard
+      ip: "10.10.0.15"

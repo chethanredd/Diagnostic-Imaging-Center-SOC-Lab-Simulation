@@ -1,0 +1,81 @@
+{
+  "Name": "DIC-PACS-Server",
+  "StorageDirectory": "/var/lib/orthanc/db",
+  "IndexDirectory": "/var/lib/orthanc/db",
+  "TemporaryDirectory": "/tmp/",
+  "StorageCompression": false,
+  "MaximumStorageSize": 0,
+  "MaximumPatientCount": 0,
+  "HttpDescribeErrors": true,
+
+  "HttpPort": 8042,
+  "DicomPort": 4242,
+
+  "HttpServerEnabled": true,
+  "DicomServerEnabled": true,
+
+  "RemoteAccessAllowed": true,
+  "AuthenticationEnabled": true,
+
+  "DicomAet": "DIC-PACS",
+  "DicomCheckCalledAet": false,
+
+  "OrthancPeers": {
+    "MRI-Simulator": {
+      "Url": "http://10.10.10.30:8042/",
+      "RemoteAccessAllowed": true
+    },
+    "CT-Simulator": {
+      "Url": "http://10.10.10.31:8042/",
+      "RemoteAccessAllowed": true
+    }
+  },
+
+  "DicomModalities": {
+    "MRI-SIM": {
+      "AET": "MRI-SIM",
+      "Host": "10.10.10.30",
+      "Port": 4242
+    },
+    "CT-SIM": {
+      "AET": "CT-SIM",
+      "Host": "10.10.10.31",
+      "Port": 4242
+    },
+    "RAD-WS": {
+      "AET": "RAD-WS",
+      "Host": "10.10.20.20",
+      "Port": 4242
+    }
+  },
+
+  "DefaultEncoding": "Utf8",
+  "OverwriteInstances": true,
+
+  "JobsHistorySize": 10,
+  "ConcurrentJobs": 2,
+
+  "Plugins": [
+  ],
+
+  "HttpCompressionEnabled": true,
+  "KeepAlive": true,
+  "HttpTimeout": 10,
+
+  "DicomConnectionTimeout": 30,
+  "DicomReceiveTimeout": 30,
+  "DicomSendTimeout": 30,
+
+  "HttpVerboseLogging": false,
+  "LuaScriptsEnabled": true,
+  "LuaScripts": [],
+
+  "MaximumJobRetries": 10,
+
+  "StorageAccessOnFind": "Always",
+
+  "DicomScuTimeout": 30,
+  "DicomStoreTimeout": 30,
+
+  "SynchronousCMove": true
+}

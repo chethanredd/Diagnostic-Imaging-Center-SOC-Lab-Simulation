@@ -1,0 +1,15 @@
+---
+#
+# Wazuh app - App configuration file
+# Copyright (C) 2017, Wazuh Inc.
+#
+# ======================== Wazuh app configuration file ========================
+#
+# API entries
+hosts:
+  - 1513629884013:
+      url: https://wazuh.manager
+      port: 55000
+      username: wazuh-wui
+      password: "MyS3cr37P450r.*-"
+      run_as: false

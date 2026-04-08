@@ -1,0 +1,229 @@
+%YAML 1.1
+---
+# ================================================================
+# DIC SOC Lab — Suricata IDS/IPS Configuration
+# ================================================================
+
+vars:
+  address-groups:
+    HOME_NET: "[10.10.0.0/16]"
+    EXTERNAL_NET: "!$HOME_NET"
+    MEDICAL_NET: "[10.10.10.0/24]"
+    ADMIN_NET: "[10.10.20.0/24]"
+    DMZ_NET: "[10.10.30.0/24]"
+    MGMT_NET: "[10.10.0.0/24]"
+    PACS_SERVER: "[10.10.10.10]"
+    RIS_SERVER: "[10.10.10.20]"
+    MRI_CT: "[10.10.10.30, 10.10.10.31]"
+
+  port-groups:
+    HTTP_PORTS: "80"
+    SHELLCODE_PORTS: "!80"
+    ORACLE_PORTS: "1521"
+    SSH_PORTS: "22"
+    DICOM_PORTS: "104, 4242"
+    HL7_PORTS: "2575"
+    WAZUH_PORTS: "1514, 1515"
+
+default-log-dir: /var/log/suricata/
+
+# ----------------------------------------------------------------
+# Outputs
+# ----------------------------------------------------------------
+outputs:
+  - fast:
+      enabled: yes
+      filename: fast.log
+      append: yes
+
+  - eve-log:
+      enabled: yes
+      filename: eve.json
+      types:
+        - alert:
+            payload: yes
+            payload-printable: yes
+            metadata: yes
+            tagged-packets: yes
+            xff:
+              enabled: no
+              mode: extra-data
+              deployment: reverse
+              header: X-Forwarded-For
+        - http:
+            extended: yes
+        - dns:
+            query: yes
+            answer: yes
+        - tls:
+            extended: yes
+            ja3: yes
+            ja3s: yes
+        - files:
+            force-magic: no
+        - netflow:
+        - anomaly:
+            enabled: yes
+            types:
+              applayer: yes
+              stream: yes
+              packet: yes
+
+  - stats:
+      enabled: yes
+      filename: stats.log
+      totals: yes
+      threads: no
+      pktrate: no
+
+# ----------------------------------------------------------------
+# Logging
+# ----------------------------------------------------------------
+logging:
+  default-log-level: notice
+  default-output-filter: ""
+  outputs:
+    - console:
+        enabled: yes
+    - file:
+        enabled: yes
+        level: info
+        filename: /var/log/suricata/suricata.log
+    - syslog:
+        enabled: no
+        facility: local5
+        format: "[%i] <%d> -- "
+
+# ----------------------------------------------------------------
+# AF-Packet (Linux packet capture)
+# ----------------------------------------------------------------
+af-packet:
+  - interface: eth0
+    cluster-id: 99
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+    tpacket-v3: yes
+  - interface: eth1
+    cluster-id: 98
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+    tpacket-v3: yes
+  - interface: eth2
+    cluster-id: 97
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+    tpacket-v3: yes
+  - interface: eth3
+    cluster-id: 96
+    cluster-type: cluster_flow
+    defrag: yes
+    use-mmap: yes
+    tpacket-v3: yes
+
+pcap:
+  - interface: eth0
+
+# ----------------------------------------------------------------
+# Application Layer Protocols
+# ----------------------------------------------------------------
+app-layer:
+  protocols:
+    tls:
+      enabled: yes
+      ja3-fingerprints: yes
+      encryption-handling: default
+
+    http:
+      enabled: yes
+      libhtp:
+        default-config:
+          personality: IDS
+          request-body-limit: 100kb
+          response-body-limit: 100kb
+
+    smtp:
+      enabled: yes
+
+    dns:
+      enabled: yes
+
+# ----------------------------------------------------------------
+# Rules
+# ----------------------------------------------------------------
+default-rule-path: /etc/suricata/rules
+
+rule-files:
+  - dic.rules
+  - suricata.rules
+
+classification-file: /etc/suricata/classification.config
+reference-config-file: /etc/suricata/reference.config
+
+# ----------------------------------------------------------------
+# Engine settings
+# ----------------------------------------------------------------
+detect:
+  profile: medium
+  custom-values:
+    toclient-groups: 3
+    toserver-groups: 25
+  sgh-mpm-context: auto
+  inspection-recursion-limit: 3000
+  prefilter:
+    default: mpm
+
+defrag:
+  memcap: 64mb
+  hash-size: 65536
+  trackers: 65535
+  max-frags: 65535
+  prealloc: yes
+  timeout: 60
+
+flow:
+  memcap: 128mb
+  hash-size: 65536
+  prealloc: 10000
+  emergency-recovery: 30
+
+vlan:
+  use-for-tracking: true
+
+flow-timeouts:
+  default:
+    new: 30
+    established: 300
+    closed: 0
+    bypassed: 100
+  tcp:
+    new: 60
+    established: 600
+    closed: 60
+    bypassed: 100
+  udp:
+    new: 30
+    established: 300
+    bypassed: 100
+  icmp:
+    new: 30
+    established: 300
+    bypassed: 100
+
+stream:
+  memcap: 64mb
+  checksum-validation: yes
+  inline: auto
+  reassembly:
+    memcap: 256mb
+    depth: 1mb
+    toserver-chunk-size: 2560
+    toclient-chunk-size: 2560
+    randomize-chunk-size: yes
+
+host:
+  hash-size: 4096
+  prealloc: 1000
+  memcap: 32mb
