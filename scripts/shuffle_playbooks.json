@@ -1,20 +1,20 @@
 [
   {
     "id": "dic-ransomware-response",
-    "name": "DIC — Ransomware Response",
+    "name": "DIC - Ransomware Response",
     "description": "Automated response to ransomware detection on DICOM/PACS systems (Wazuh Rule 100001)",
     "trigger": {
       "type": "wazuh_alert",
       "conditions": [
         {"field": "rule.groups", "operator": "contains", "value": "ransomware"},
-        {"field": "rule.level",  "operator": "gte",      "value": 12}
+        {"field": "rule.level", "operator": "gte", "value": 12}
       ]
     },
     "actions": [
       {
         "step": 1,
         "name": "isolate_endpoint",
-        "description": "Block all traffic to/from compromised host via Wazuh active response",
+        "description": "Block all traffic to/from the compromised host via Wazuh active response",
         "app": "Wazuh",
         "action": "run_active_response",
         "params": {
@@ -41,7 +41,7 @@
         "app": "TheHive",
         "action": "create_case",
         "params": {
-          "title": "RANSOMWARE — {{trigger.agent.name}} — DICOM ENCRYPTED",
+          "title": "RANSOMWARE - {{trigger.agent.name}} - DICOM ENCRYPTED",
           "severity": 3,
           "tags": ["ransomware", "dicom", "medical", "hipaa", "critical"],
           "description": "Ransomware detected on {{trigger.agent.name}} ({{trigger.agent.ip}}). Rule: {{trigger.rule.description}}. MITRE: T1486."
@@ -55,7 +55,7 @@
         "action": "post_message",
         "params": {
           "channel": "#soc-critical",
-          "message": "🚨 *RANSOMWARE DETECTED* on `{{trigger.agent.name}}`\n• Rule: {{trigger.rule.description}}\n• MITRE: T1486 — Data Encrypted for Impact\n• Agent: {{trigger.agent.ip}}\n• Action taken: Endpoint ISOLATED\n• Incident: {{create_incident.case_id}}"
+          "message": "RANSOMWARE DETECTED on {{trigger.agent.name}}\nRule: {{trigger.rule.description}}\nMITRE: T1486 - Data Encrypted for Impact\nAgent: {{trigger.agent.ip}}\nAction taken: Endpoint ISOLATED\nIncident: {{create_incident.case_id}}"
         }
       },
       {
@@ -72,16 +72,15 @@
     ],
     "mitre": {"tactic": "Impact", "technique": "T1486"}
   },
-
   {
     "id": "dic-brute-force-response",
-    "name": "DIC — Brute Force Auto-Block",
+    "name": "DIC - Brute Force Auto-Block",
     "description": "Auto-block brute force sources after threat intel check (Rule 100005)",
     "trigger": {
       "type": "wazuh_alert",
       "conditions": [
         {"field": "rule.groups", "operator": "contains", "value": "brute_force"},
-        {"field": "rule.level",  "operator": "gte",      "value": 10}
+        {"field": "rule.level", "operator": "gte", "value": 10}
       ]
     },
     "actions": [
@@ -115,22 +114,21 @@
         "action": "post_message",
         "params": {
           "channel": "#soc-alerts",
-          "message": "⚠️ *Brute Force Detected* from `{{trigger.data.srcip}}`\n• Target: {{trigger.agent.name}} ({{trigger.rule.description}})\n• AbuseIPDB Score: {{check_abuseipdb.data.abuseConfidenceScore}}%\n• Action: {{block_if_malicious.result}}"
+          "message": "Brute Force Detected from {{trigger.data.srcip}}\nTarget: {{trigger.agent.name}} ({{trigger.rule.description}})\nAbuseIPDB Score: {{check_abuseipdb.data.abuseConfidenceScore}}%\nAction: {{block_if_malicious.result}}"
         }
       }
     ],
     "mitre": {"tactic": "Credential Access", "technique": "T1110"}
   },
-
   {
     "id": "dic-exfiltration-response",
-    "name": "DIC — DICOM Exfiltration Response",
+    "name": "DIC - DICOM Exfiltration Response",
     "description": "Respond to large outbound transfers from Medical VLAN (Rule 100011)",
     "trigger": {
       "type": "wazuh_alert",
       "conditions": [
         {"field": "rule.groups", "operator": "contains", "value": "exfiltration"},
-        {"field": "rule.level",  "operator": "gte",      "value": 12}
+        {"field": "rule.level", "operator": "gte", "value": 12}
       ]
     },
     "actions": [
@@ -181,10 +179,133 @@
         "action": "post_message",
         "params": {
           "channel": "#soc-critical",
-          "message": "🚨 *POSSIBLE DICOM DATA BREACH* from `{{trigger.agent.name}}`\n• Bytes transferred: {{trigger.data.bytes_sent}}\n• Destination: {{trigger.data.dstip}}\n• MITRE: T1041 — Exfiltration Over C2\n• HIPAA §164.400: Breach notification may be required\n• Action: Host BLOCKED"
+          "message": "POSSIBLE DICOM DATA BREACH from {{trigger.agent.name}}\nBytes transferred: {{trigger.data.bytes_sent}}\nDestination: {{trigger.data.dstip}}\nMITRE: T1041 - Exfiltration Over C2\nHIPAA 164.400: Breach notification may be required\nAction: Host BLOCKED"
         }
       }
     ],
     "mitre": {"tactic": "Exfiltration", "technique": "T1041"}
+  },
+  {
+    "id": "dic-hl7-abuse-response",
+    "name": "DIC - HL7 Abuse Response",
+    "description": "Flag unauthorized HL7 messages and isolate the source if needed (Suricata SID 9000020)",
+    "trigger": {
+      "type": "suricata_alert",
+      "conditions": [
+        {"field": "alert.signature", "operator": "contains", "value": "HL7"},
+        {"field": "src_ip", "operator": "not_starts_with", "value": "10.10.10.20"}
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "name": "isolate_source",
+        "app": "Wazuh",
+        "action": "run_active_response",
+        "params": {
+          "command": "firewall-drop",
+          "srcip": "{{trigger.src_ip}}",
+          "timeout": 1800
+        }
+      },
+      {
+        "step": 2,
+        "name": "create_incident",
+        "app": "TheHive",
+        "action": "create_case",
+        "params": {
+          "title": "HL7 ABUSE - {{trigger.src_ip}}",
+          "severity": 2,
+          "tags": ["hl7", "suricata", "medical", "policy_violation"],
+          "description": "Unauthorized HL7 traffic detected by Suricata. Signature: {{trigger.alert.signature}}. Source: {{trigger.src_ip}}"
+        }
+      },
+      {
+        "step": 3,
+        "name": "notify_soc",
+        "app": "Slack",
+        "action": "post_message",
+        "params": {
+          "channel": "#soc-alerts",
+          "message": "HL7 Abuse Detected from {{trigger.src_ip}}\nSignature: {{trigger.alert.signature}}\nAction: source isolated and incident created\nCase: {{create_incident.case_id}}"
+        }
+      }
+    ],
+    "mitre": {"tactic": "Command and Control", "technique": "T1071"}
+  },
+  {
+    "id": "dic-phishing-portal-response",
+    "name": "DIC - Phishing Credential Capture",
+    "description": "Respond to credential capture and suspicious login events from the phishing simulation",
+    "trigger": {
+      "type": "wazuh_alert",
+      "conditions": [
+        {"field": "rule.groups", "operator": "contains", "value": "phishing"},
+        {"field": "rule.level", "operator": "gte", "value": 11}
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "name": "create_incident",
+        "app": "HTTP",
+        "action": "POST",
+        "params": {
+          "url": "http://wazuh.manager:55000/security/incidents",
+          "body": {
+            "type": "PHISHING_EVENT",
+            "source": "{{trigger.data.srcip}}",
+            "user": "{{trigger.data.dstuser}}",
+            "rule": "{{trigger.rule.description}}"
+          }
+        }
+      },
+      {
+        "step": 2,
+        "name": "notify_soc",
+        "app": "Slack",
+        "action": "post_message",
+        "params": {
+          "channel": "#soc-alerts",
+          "message": "Phishing Activity Detected\nUser: {{trigger.data.dstuser}}\nSource: {{trigger.data.srcip}}\nRule: {{trigger.rule.description}}"
+        }
+      }
+    ],
+    "mitre": {"tactic": "Initial Access", "technique": "T1566.002"}
+  },
+  {
+    "id": "dic-dicom-scan-response",
+    "name": "DIC - DICOM Scan Response",
+    "description": "Detect scan activity against the PACS DICOM service and enrich the source",
+    "trigger": {
+      "type": "suricata_alert",
+      "conditions": [
+        {"field": "alert.signature", "operator": "contains", "value": "DICOM"},
+        {"field": "src_ip", "operator": "not_starts_with", "value": "10.10.10."}
+      ]
+    },
+    "actions": [
+      {
+        "step": 1,
+        "name": "check_threat_intel",
+        "app": "HTTP",
+        "action": "GET",
+        "params": {
+          "url": "https://api.abuseipdb.com/api/v2/check?ipAddress={{trigger.src_ip}}&maxAgeInDays=90",
+          "headers": {"Key": "{{ABUSE_API_KEY}}", "Accept": "application/json"}
+        }
+      },
+      {
+        "step": 2,
+        "name": "notify_soc",
+        "app": "Slack",
+        "action": "post_message",
+        "params": {
+          "channel": "#soc-alerts",
+          "message": "DICOM Scan Detected from {{trigger.src_ip}}\nSignature: {{trigger.alert.signature}}\nAction: threat intel check executed"
+        }
+      }
+    ],
+    "mitre": {"tactic": "Discovery", "technique": "T1046"}
   }
 ]

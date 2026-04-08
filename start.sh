@@ -264,7 +264,9 @@ chmod +x ./scripts/seed_soc_activity.sh 2>/dev/null || true
 # --- Stage H: Bootstrap Shuffle demo workflows ---
 log "Stage H — Ensuring Shuffle workflows exist..."
 if command -v python3 >/dev/null 2>&1; then
-  python3 ./scripts/import_shuffle_workflows.py 2>/dev/null || true
+  if ! python3 ./scripts/import_shuffle_workflows.py; then
+    warn "Shuffle workflow bootstrap reported an error."
+  fi
 else
   warn "python3 not found; skipping Shuffle workflow bootstrap."
 fi
@@ -308,7 +310,7 @@ echo -e "  ${CYAN}RIS Server${NC}      →  http://${HOST_IP}:8081"
 echo -e "                     ${RIS_USERNAME:-radiologist} / ${RIS_PASSWORD:-Radiology#2026}"
 echo ""
 echo -e "  ${CYAN}Shuffle SOAR${NC}    →  http://${HOST_IP}:3001"
-echo -e "                     admin / SOCAdmin!2026"
+echo -e "                     socadmin / SOCAdmin!2026"
 echo ""
 echo -e "  ${CYAN}Wazuh API${NC}       →  https://${HOST_IP}:56000"
 echo -e "                     wazuh-wui / MyS3cr37P450r.*-"
