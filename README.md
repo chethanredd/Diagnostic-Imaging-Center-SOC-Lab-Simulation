@@ -63,7 +63,7 @@ chmod +x start.sh demo.sh
 | **PACS (Orthanc)** | http://`<HOST_IP>`:8042 | `orthanc` / `orthanc` |
 | **RIS Server** | http://`<HOST_IP>`:8081 | `radiologist` / `Radiology#2026` |
 | **Patient Portal** | http://`<HOST_IP>`:8080 | `patient1` / `Patient#2026` |
-| **SOAR (Shuffle)** | http://`<HOST_IP>`:3001 | `admin` / `SOCAdmin!2026` |
+| **SOAR (Shuffle)** | http://`<HOST_IP>`:3001 | `socadmin` / `SOCAdmin!2026` |
 | **Wazuh API** | https://`<HOST_IP>`:56000 | `wazuh-wui` / `MyS3cr37P450r.*-` |
 
 > Replace `<HOST_IP>` with the host machine IP on your LAN (shown at the end of `./start.sh`).
@@ -284,6 +284,12 @@ docker compose restart wazuh.dashboard
 docker exec dic-wazuh-manager /var/ossec/bin/manage_agents -l
 # Check enrollment password matches .env ENROLLMENT_PASSWORD
 ```
+
+**Shuffle login says "Failed getting org"**
+```bash
+./fix_shuffle_restart.sh
+```
+Use `socadmin / SOCAdmin!2026`. If the lab was started before the Shuffle defaults changed, a stale volume can leave the org/user state inconsistent.
 
 **PACS not receiving DICOM**
 ```bash

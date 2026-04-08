@@ -265,7 +265,7 @@
 
   <!-- Rule 100021: RIS Server Login Success -->
   <rule id="100021" level="3">
-    <decoded_as>dic-auth-ris</decoded_as>
+    <decoded_as>dic-ris-login</decoded_as>
     <match>SUCCESS</match>
     <description>RIS Server: Successful portal login for user $(dstuser) from $(srcip)</description>
     <mitre>
@@ -274,10 +274,10 @@
     <group>authentication_success,ris_auth,hipaa_access,</group>
   </rule>
 
-  <!-- Rule 100024: RIS HL7 ADT event received -->
+  <!-- Rule 100024: RIS HL7 message received from non-RIS source -->
   <rule id="100024" level="3">
-    <decoded_as>dic-ris-hl7</decoded_as>
-    <description>RIS: HL7 $(status) event for patient $(dstuser)</description>
+    <decoded_as>dic-ris-hl7-live</decoded_as>
+    <description>RIS: HL7 message received from $(srcip)</description>
     <group>ris,hl7,clinical_workflow,hipaa_activity,</group>
   </rule>
 
