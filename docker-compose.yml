@@ -211,6 +211,7 @@ services:
       management:
         ipv4_address: 10.10.0.16
     environment:
+      - ORBORUS_CONTAINER_NAME=dic-shuffle-orborus
       - SHUFFLE_APP_SDK_VERSION=1.1.0
       - SHUFFLE_WORKER_VERSION=latest
       - ORG_ID=Shuffle
