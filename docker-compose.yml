@@ -218,6 +218,11 @@ services:
       - BASE_URL=http://shuffle-backend:5001
       - DOCKER_API_VERSION=1.40
       - CLEANUP=true
+      - SHUFFLE_ORBORUS_EXECUTION_TIMEOUT=120
+      - SHUFFLE_WORKER_SERVER_URL=http://shuffle-backend:5001
+      - SHUFFLE_PASS_WORKER_PROXY=false
+      - SHUFFLE_ORBORUS_EXECUTION_CONCURRENCY=5
+      - DOCKER_NETWORK=dic-management
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
 
